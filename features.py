@@ -91,37 +91,32 @@ def get_extractor(name):
 
 
 def extract_folder(root, extractor):
-    """Read root/venomous/* and root/non_venomous/*  ->  X, y, paths.
-
-    Labels:  non_venomous = 0,  venomous = 1.
-    """
-    # accept both "venomous"/"non_venomous" and "Venomous"/"Non Venomous"
+    """Read venomous/non_venomous (any capitalisation) -> X, y, paths.
+    Labels: non_venomous = 0, venomous = 1. Walks subfolders."""
     class_aliases = {
-        1: ["venomous", "Venomous", "VENOMOUS"],
-        0: ["non_venomous", "Non Venomous", "non venomous", "NonVenomous", "Non_Venomous"],
+        1: {"venomous"},
+        0: {"non_venomous", "non venomous", "nonvenomous"},
     }
     exts = ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp")
     X, y, paths = [], [], []
-    # walk recursively so train/ and test/ subfolders are both included
     for label, names in class_aliases.items():
         dirs = []
         for dirpath, dirnames, _ in os.walk(root):
             for dn in dirnames:
-                if dn in names:
+                if dn.strip().lower() in names:
                     dirs.append(os.path.join(dirpath, dn))
         for d in dirs:
-        files = []
-        for e in exts:
-            files += glob.glob(os.path.join(d, e))
-            files += glob.glob(os.path.join(d, e.upper()))
-        for f in sorted(set(files)):
-            try:
-                X.append(extractor(f)); y.append(label); paths.append(f)
-            except Exception as ex:                       # skip unreadable files
-                print(f"  ! skipped {f}: {ex}")
+            files = []
+            for e in exts:
+                files += glob.glob(os.path.join(d, e))
+                files += glob.glob(os.path.join(d, e.upper()))
+            for f in sorted(set(files)):
+                try:
+                    X.append(extractor(f)); y.append(label); paths.append(f)
+                except Exception as ex:
+                    print(f"  ! skipped {f}: {ex}")
     if not X:
         raise RuntimeError(
-            f"No images found under {root}. Expected subfolders "
-            f"'venomous/' and 'non_venomous/' containing image files."
-        )
+            f"No images under {root}. Expected venomous/ and non_venomous/ "
+            "folders (any capitalisation, spaces ok).")
     return np.array(X), np.array(y), paths
